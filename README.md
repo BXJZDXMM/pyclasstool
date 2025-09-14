@@ -4,6 +4,8 @@
 
 [![Star History Chart](https://api.star-history.com/svg?repos=BXJZDXMM/pyclasstool&type=Date)](https://www.star-history.com/#BXJZDXMM/pyclasstool&Date)
 
+## 正文
+
 一个专为课堂设计的实用工具，帮助教师管理课程、学生和时间，提高教学效率。
 
 ✨ 功能特点
@@ -28,9 +30,9 @@
 
 前提条件
 
-• Windows 7/10/11 操作系统
+• Windows 7/10/11 操作系统（推荐 Windows 10 及以上）
 
-• Python 3.8 或更高版本
+• Python 3.8 或更高版本（推荐 Python 3.12.3）
 
 • 系统中装有 PixPin 或者任何按 Ctrl+Alt+A 可以截图的软件
 
