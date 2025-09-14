@@ -37,12 +37,6 @@
 
 3. 运行程序：
    python main.pyw
-   
-
-一键安装包
-
-对于不想安装Python环境的用户，我们提供了可执行文件版本：
-• 从https://github.com/yourusername/ClassTool/releases下载最新版本的 ClassTool.exe
 
 • 双击运行即可使用
 
