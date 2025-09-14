@@ -64,36 +64,7 @@
 
 ⚙️ 配置说明
 
-程序配置文件位于 config.yaml，包含以下设置：
-# 基本设置
-version: "1.0.0"
-darkmode: false
-password: ""  # 管理密码加密存储
-
-# 课程表设置
-schedule:
-  星期一: "语文 数学 英语"
-  星期二: "物理 化学 生物"
-  星期三: "历史 地理 政治"
-  星期四: "体育 音乐 美术"
-  星期五: "计算机 实验课 自习"
-
-# 人员列表
-peopleList: "张三、李四、王五、赵六"
-
-# 分组管理
-groups:
-  第一组: "张三、李四"
-  第二组: "王五、赵六"
-
-# 自动设置
-autoUpdate: false
-auto_shutdown_enabled: false
-auto_shutdown_time: "22:00"
-
-# 下课提醒
-class_reminders: "8:20、9:30、10:40"
-
+程序配置文件位于 config.yaml，建议使用程序自带编辑器修改配置
 
 🔄 更新日志
 
@@ -145,7 +116,7 @@ v1.0.0 (2024-01-01)
 
 • 邮箱：BXJZDXMM@vip.qq.com
 
-• 官网：http://spj2025.top
+• 官网：http://spj2025.top:19540
 
 🙏 致谢
 
