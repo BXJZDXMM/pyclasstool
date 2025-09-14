@@ -1,5 +1,9 @@
 # 刷屏君课堂工具 (ClassTool)
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=BXJZDXMM/pyclasstool&type=Date)](https://www.star-history.com/#BXJZDXMM/pyclasstool&Date)
+
 一个专为课堂设计的实用工具，帮助教师管理课程、学生和时间，提高教学效率。
 
 ✨ 功能特点
