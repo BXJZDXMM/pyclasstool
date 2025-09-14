@@ -1,9 +1,4 @@
-刷屏君课堂工具 (ClassTool)
-
-https://img.shields.io/badge/Python-3.8%2B-blue.svg](https://www.python.org/)
-https://img.shields.io/badge/License-MIT-green.svg](LICENSE)
-https://img.shields.io/badge/Platform-Windows-lightgrey.svg](https://www.microsoft.com/windows)
-https://img.shields.io/badge/Version-1.0.0-orange.svg]()
+# 刷屏君课堂工具 (ClassTool)
 
 一个专为课堂设计的实用工具，帮助教师管理课程、学生和时间，提高教学效率。
 
