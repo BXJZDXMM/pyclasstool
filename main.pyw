@@ -71,7 +71,7 @@ class SettingsWindow(QWidget):
     def __init__(self, main_window):
         super().__init__()
         self.main_window = main_window
-        self.setWindowTitle("刷屏君 课堂工具 v1.0.0")
+        self.setWindowTitle("刷屏君 课堂工具 v1.0.1")
         self.setWindowIcon(QIcon("icon.ico"))  # 如果有图标文件的话
         self.setGeometry(100, 100, 800, 600)
         self.setMinimumSize(800, 600)
@@ -1751,6 +1751,24 @@ class SettingsWindow(QWidget):
         auto_start_btn.clicked.connect(self.add_auto_start)
         button_layout.addWidget(auto_start_btn)
 
+        # 添加更新日志按钮
+        change_log_btn = QPushButton("更新日志")
+        change_log_btn.setFixedHeight(50)
+        change_log_btn.setFont(QFont("Microsoft YaHei UI", 12, QFont.Bold))
+        change_log_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ffd45d;
+                color: white;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #e6b400;
+            }
+        """)
+        change_log_btn.clicked.connect(self.show_changeLog)
+        button_layout.addWidget(change_log_btn)
+
         # 添加关于按钮
         about_btn = QPushButton("关于")
         about_btn.setFixedHeight(50)
@@ -1860,7 +1878,7 @@ class SettingsWindow(QWidget):
     def show_about_info(self):
         """显示关于信息"""
         about_text = """
-            <h2>刷屏君 课堂工具 v1.0.0</h2>
+            <h2>刷屏君 课堂工具 v1.0.1</h2>
             <p>这是一个专为课堂设计的实用工具，帮助教师管理课程、学生和时间。</p>
             <p><b>主要功能：</b></p>
             <ul>
@@ -1879,6 +1897,28 @@ class SettingsWindow(QWidget):
         QMessageBox.information(
             self,
             "关于",
+            about_text,
+            QMessageBox.Ok
+        )
+    
+    def show_changeLog(self):
+        """显示关于信息"""
+        about_text = """
+            <h2>刷屏君 课堂工具 v1.0.1 更新日志</h2>
+            <p><b>v1.0.1</b></p>
+            <ul>
+                <li>修复未配置课程表时程序异常崩溃的问题</li>
+                <li>修复保存密码时程序异常崩溃的问题</li>
+            </ul>
+            <p><b>v1.0.0</b></p>
+            <ul>
+                <li>初代 pyclasstool 问世</li>
+            </ul>
+        """
+        
+        QMessageBox.information(
+            self,
+            "更新日志",
             about_text,
             QMessageBox.Ok
         )
@@ -2015,7 +2055,7 @@ class SettingsWindow(QWidget):
     
     def save_password(self):
         """保存密码"""
-        password = self.password_input.text().strip()
+        password = self.new_password_input.text().strip()
         confirm_password = self.confirm_password_input.text().strip()
         
         if not password:
@@ -2040,7 +2080,7 @@ class SettingsWindow(QWidget):
         self.password_status.setStyleSheet("color: green;")
         
         # 清空输入框
-        self.password_input.clear()
+        self.new_password_input.clear()
         self.confirm_password_input.clear()
     
     def encrypt_password(self, password):
@@ -3298,6 +3338,10 @@ class ScheduleWindow(QWidget):
         
         # 获取课程
         courses = self.schedule.get(day_cn, [])
+
+        if not courses:
+           return day_cn, "暂无课程"
+        
         return day_cn, courses
     
     def update_all_content(self):
