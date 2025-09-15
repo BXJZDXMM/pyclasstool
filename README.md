@@ -101,7 +101,7 @@ v1.0.0 (2024-01-01)
 开发环境设置
 
 1. 克隆仓库：
-   git clone https://github.com/yourusername/ClassTool.git
+   git clone https://github.com/BXJZDXMM/ClassTool.git
    cd ClassTool
    
 
