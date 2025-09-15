@@ -98,22 +98,6 @@ v1.0.0 (2024-01-01)
 4. 推送到分支 (git push origin feature/AmazingFeature)
 5. 打开 Pull Request
 
-开发环境设置
-
-1. 克隆仓库：
-   git clone https://github.com/BXJZDXMM/ClassTool.git
-   cd ClassTool
-   
-
-2. 创建虚拟环境：
-   python -m venv venv
-   venv\Scripts\activate
-   
-
-3. 安装依赖：
-   pip install -r requirements.txt
-   
-
 📄 许可证
 
 本项目采用 MIT 许可证 - 查看 LICENSE 文件了解详情
