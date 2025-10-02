@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import (
     QStackedWidget, QListWidget, QListWidgetItem, QLineEdit, QTextEdit,
     QFrame, QSizePolicy, QGridLayout, QProgressBar, QInputDialog,
     QMessageBox, QSpinBox, QTableWidgetItem, QTabWidget, QTableWidget, QButtonGroup,
-    QRadioButton, QCheckBox, QComboBox
+    QRadioButton, QCheckBox, QComboBox, QScrollArea
 )
 from PyQt5.QtCore import Qt, QTimer, QSize, QThread, pyqtSignal, QPropertyAnimation
 from PyQt5.QtGui import QFont, QColor, QPalette, QPainter, QBrush, QIcon
@@ -27,6 +27,15 @@ from cryptography.hazmat.backends import default_backend
 
 # 防止程序多开
 single = tendo.singleton.SingleInstance()
+
+
+def start_guardian():
+    """启动守护进程"""
+    pass
+
+def stop_guardian():
+    """停止守护进程"""
+    pass
 
 class UpdateChecker(QThread):
     update_found = pyqtSignal(str, str)
@@ -71,8 +80,8 @@ class SettingsWindow(QWidget):
     def __init__(self, main_window):
         super().__init__()
         self.main_window = main_window
-        self.setWindowTitle("刷屏君 课堂工具 v1.0.1")
-        self.setWindowIcon(QIcon("icon.ico"))  # 如果有图标文件的话
+        self.setWindowTitle("刷屏君 课堂工具 v1.1.0")
+        self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "icon.ico")))  # 如果有图标文件的话
         self.setGeometry(100, 100, 800, 600)
         self.setMinimumSize(800, 600)
         
@@ -385,14 +394,14 @@ class SettingsWindow(QWidget):
         layout.addWidget(separator)
         
         # 说明标签
-        info_label = QLabel("考试功能由独立的考试助手程序处理。请在此设置考试信息，保存后考试助手会自动处理。")
+        info_label = QLabel("配置考试")
         info_label.setFont(QFont("Microsoft YaHei UI", 10))
         layout.addWidget(info_label)
         
         # 创建考试表格
         self.exam_table = QTableWidget()
-        self.exam_table.setColumnCount(5)  # 科目、开始时间、结束时间、关机、操作
-        self.exam_table.setHorizontalHeaderLabels(["考试科目", "开始时间", "结束时间", "考完关机", "操作"])
+        self.exam_table.setColumnCount(6)  # 科目、开始时间、结束时间、关机、语音播报、操作
+        self.exam_table.setHorizontalHeaderLabels(["考试科目", "开始时间", "结束时间", "考完关机", "语音播报", "操作"])
         self.exam_table.setStyleSheet("""
             QTableWidget {
                 border: 1px solid #d0d0d0;
@@ -521,10 +530,22 @@ class SettingsWindow(QWidget):
         
         add_layout.addLayout(end_container, 2, 1)
         
+        # 复选框容器
+        checkbox_layout = QHBoxLayout()
+        checkbox_layout.setSpacing(20)
+        
         # 关机复选框
         self.shutdown_check = QCheckBox("考完关机")
         self.shutdown_check.setFont(QFont("Microsoft YaHei UI", 12))
-        add_layout.addWidget(self.shutdown_check, 3, 1)
+        checkbox_layout.addWidget(self.shutdown_check)
+        
+        # 语音播报复选框
+        self.voice_warning = QCheckBox("语音播报")
+        self.voice_warning.setFont(QFont("Microsoft YaHei UI", 12))
+        checkbox_layout.addWidget(self.voice_warning)
+        
+        # 添加复选框容器到网格布局
+        add_layout.addLayout(checkbox_layout, 3, 1)
         
         # 添加按钮
         add_btn = QPushButton("添加考试")
@@ -1331,8 +1352,8 @@ class SettingsWindow(QWidget):
     def load_exams(self):
         """从contest.json加载考试数据"""
         try:
-            if os.path.exists("contest.json"):
-                with open("contest.json", "r", encoding="utf-8") as f:
+            if os.path.exists(os.path.join(os.path.dirname(__file__),"contest.json")):
+                with open(os.path.join(os.path.dirname(__file__),"contest.json"), "r", encoding="utf-8") as f:
                     exams = json.load(f)
             else:
                 exams = []
@@ -1362,23 +1383,29 @@ class SettingsWindow(QWidget):
             shutdown_item.setCheckState(Qt.Checked if exam.get("autoshutdown", False) else Qt.Unchecked)
             self.exam_table.setItem(i, 3, shutdown_item)
             
+            # 语音播报复选框
+            voice_item = QTableWidgetItem()
+            voice_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            voice_item.setCheckState(Qt.Checked if exam.get("voiceWarn", False) else Qt.Unchecked)
+            self.exam_table.setItem(i, 4, voice_item)
+            
             # 删除按钮
             delete_btn = QPushButton("-")
-            delete_btn.setFixedSize(30, 30)
+            delete_btn.setFixedSize(25, 25)
             delete_btn.setFont(QFont("Microsoft YaHei UI", 12, QFont.Bold))
             delete_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #e74c3c;
                     color: white;
                     border: none;
-                    border-radius: 15px;
+                    border-radius: 10px;
                 }
                 QPushButton:hover {
                     background-color: #c0392b;
                 }
             """)
             delete_btn.clicked.connect(lambda _, row=i: self.delete_exam(row))
-            self.exam_table.setCellWidget(i, 4, delete_btn)
+            self.exam_table.setCellWidget(i, 5, delete_btn)  # 将按钮放在第6列（索引5）
 
     def reverse_format_time(self, time_str):
         """将'2025年9月13日14时5分'格式转换为'2025/09/13 14:05'"""
@@ -1402,6 +1429,7 @@ class SettingsWindow(QWidget):
         start_time = self.start_input.text().strip()
         end_time = self.end_input.text().strip()
         shutdown = self.shutdown_check.isChecked()
+        voice_warn = self.voice_warning.isChecked()
         
         # 验证输入
         if not subject:
@@ -1442,29 +1470,36 @@ class SettingsWindow(QWidget):
         shutdown_item.setCheckState(Qt.Checked if shutdown else Qt.Unchecked)
         self.exam_table.setItem(row, 3, shutdown_item)
         
+        # 语音播报复选框
+        voice_item = QTableWidgetItem()
+        voice_item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+        voice_item.setCheckState(Qt.Checked if voice_warn else Qt.Unchecked)
+        self.exam_table.setItem(row, 4, voice_item)
+        
         # 删除按钮
         delete_btn = QPushButton("-")
-        delete_btn.setFixedSize(30, 30)
+        delete_btn.setFixedSize(25, 25)
         delete_btn.setFont(QFont("Microsoft YaHei UI", 12, QFont.Bold))
         delete_btn.setStyleSheet("""
             QPushButton {
                 background-color: #e74c3c;
                 color: white;
                 border: none;
-                border-radius: 15px;
+                border-radius: 10px;
             }
             QPushButton:hover {
                 background-color: #c0392b;
             }
         """)
         delete_btn.clicked.connect(lambda _, row=row: self.delete_exam(row))
-        self.exam_table.setCellWidget(row, 4, delete_btn)
+        self.exam_table.setCellWidget(row, 5, delete_btn)  # 将按钮放在第6列（索引5）
         
         # 清空输入框
         self.subject_input.clear()
         self.start_input.clear()
         self.end_input.clear()
         self.shutdown_check.setChecked(False)
+        self.voice_warning.setChecked(False)
     
     def save_exams(self):
         """保存考试设置为JSON格式"""
@@ -1476,17 +1511,19 @@ class SettingsWindow(QWidget):
             start_time = self.exam_table.item(row, 1).text()
             end_time = self.exam_table.item(row, 2).text()
             shutdown = self.exam_table.item(row, 3).checkState() == Qt.Checked
+            voiceWarn = self.exam_table.item(row, 4).checkState() == Qt.Checked
             
             # 转换为新格式
             exams.append({
                 "subject": subject,
                 "st": self.format_time(start_time),
                 "ed": self.format_time(end_time),
-                "autoshutdown": shutdown
+                "autoshutdown": shutdown,
+                "voiceWarn": voiceWarn
             })
         
         # 保存到JSON文件
-        with open("contest.json", "w", encoding="utf-8") as f:
+        with open(os.path.join(os.path.dirname(__file__),"contest.json"), "w", encoding="utf-8") as f:
             json.dump(exams, f, ensure_ascii=False, indent=4)
         
         QMessageBox.information(self, "保存成功", "考试设置已保存")
@@ -1815,7 +1852,7 @@ class SettingsWindow(QWidget):
                 return
             
             # 获取当前脚本路径
-            script_path = os.path.abspath(sys.argv[0])
+            script_path = os.path.dirname(sys.argv[0])
             
             # 如果是.py文件，使用pythonw运行
             if script_path.endswith(".py") or script_path.endswith(".pyw"):
@@ -1878,7 +1915,7 @@ class SettingsWindow(QWidget):
     def show_about_info(self):
         """显示关于信息"""
         about_text = """
-            <h2>刷屏君 课堂工具 v1.0.1</h2>
+            <h2>刷屏君 课堂工具 v1.1.0</h2>
             <p>这是一个专为课堂设计的实用工具，帮助教师管理课程、学生和时间。</p>
             <p><b>主要功能：</b></p>
             <ul>
@@ -1903,8 +1940,26 @@ class SettingsWindow(QWidget):
     
     def show_changeLog(self):
         """显示关于信息"""
-        about_text = """
-            <h2>刷屏君 课堂工具 v1.0.1 更新日志</h2>
+        about_text = f"""
+            <h2>刷屏君 课堂工具 更新日志</h2>
+            <p><b>v1.1.0</b></p>
+            <ul>
+                <li>功能更新：新增学号选人、座位选人</li>
+            <p><b>v1.0.5</b></p>
+            <ul>
+                <li>功能更新：时间大屏添加日期显示，包括农历日期</li>
+                <li>时间大屏中时间的字体改为 SF Pro Text （如果显示为宋体请点击 <a href="file:///{os.path.join(os.path.dirname(__file__),"SF-Pro-Text.otf")}">此处</a> 安装SF-Pro-Text字体）</li>
+            </ul>
+            <p><b>v1.0.3</b></p>
+            <ul>
+                <li>可以关闭考试结束前15分钟及考试结束时的语音播报提示了</li>
+            </ul>
+            <p><b>v1.0.2</b></p>
+            <ul>
+                <li>修复通过自启动启动本程序，考试及图标无法读取的问题</li>
+                <li>更新更新程序逻辑，请自行前往 <a href="http://spj2025.top:19540/apps/update/SPJClassTool/files/update.pyw">此链接</a> 下载新更新程序并替换</li>
+                <li>新增保护模块，防止程序崩溃，请自行前往 <a href="http://spj2025.top:19540/apps/update/SPJClassTool/files/protect.pyw">此链接</a> 下载</li>
+            </ul>
             <p><b>v1.0.1</b></p>
             <ul>
                 <li>修复未配置课程表时程序异常崩溃的问题</li>
@@ -2169,7 +2224,7 @@ class SettingsWindow(QWidget):
         """强制关机"""
         try:
             # 获取当前目录
-            current_dir = os.path.dirname(os.path.abspath(__file__))
+            current_dir = os.path.dirname(os.path.dirname(__file__))
             # 调用强制关机程序
             subprocess.Popen([os.path.join(current_dir, "ForceShutdown.exe")])
         except Exception as e:
@@ -2304,7 +2359,7 @@ class RandomPickerWindow(QWidget):
         self.nav_list.setFixedWidth(200)
         
         # 添加导航项
-        nav_items = ["随机点人", "分组点人"]
+        nav_items = ["随机点人", "分组点人", "学号点人", "座位选人"]
         for item in nav_items:
             list_item = QListWidgetItem(item)
             list_item.setSizeHint(QSize(200, 40))
@@ -2324,6 +2379,14 @@ class RandomPickerWindow(QWidget):
         self.group_pick_page = self.create_group_pick_page()
         self.content_area.addWidget(self.group_pick_page)
         
+        # 添加学号点人页面
+        self.number_pick_page = self.create_number_pick_page()
+        self.content_area.addWidget(self.number_pick_page)
+
+        # 添加座位点人页面
+        self.seat_pick_page = self.create_seat_pick_page()
+        self.content_area.addWidget(self.seat_pick_page)
+
         # 连接导航选择事件
         self.nav_list.currentRowChanged.connect(self.content_area.setCurrentIndex)
         
@@ -2803,6 +2866,373 @@ class RandomPickerWindow(QWidget):
         # 设置30秒后自动关闭
         QTimer.singleShot(30000, self.enlarge_window.close)
 
+    def create_number_pick_page(self):
+        """创建学号点人选项卡（添加去重功能）"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(15)
+        
+        title = QLabel("学号点人")
+        title_font = QFont("Microsoft YaHei UI", 18, QFont.Bold)
+        title.setFont(title_font)
+        layout.addWidget(title)
+        
+        # 分隔线
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        separator.setStyleSheet("background-color: #e0e0e0;")
+        layout.addWidget(separator)
+        
+        # 学号范围输入区域
+        range_layout = QHBoxLayout()
+        range_layout.setSpacing(10)
+        
+        # 起始学号输入框
+        start_label = QLabel("起始学号:")
+        start_label.setFont(QFont("Microsoft YaHei UI", 12))
+        range_layout.addWidget(start_label)
+        
+        self.start_input = QSpinBox()
+        self.start_input.setFont(QFont("Microsoft YaHei UI", 12))
+        self.start_input.setMinimum(1)
+        self.start_input.setMaximum(200)
+        self.start_input.setValue(1)
+        self.start_input.setStyleSheet("""
+            QSpinBox {
+                border: 1px solid #d0d0d0;
+                border-radius: 4px;
+                padding: 5px;
+            }
+        """)
+        range_layout.addWidget(self.start_input)
+        
+        # 结束学号输入框
+        end_label = QLabel("结束学号:")
+        end_label.setFont(QFont("Microsoft YaHei UI", 12))
+        range_layout.addWidget(end_label)
+        
+        self.end_input = QSpinBox()
+        self.end_input.setFont(QFont("Microsoft YaHei UI", 12))
+        self.end_input.setMinimum(1)
+        self.end_input.setMaximum(200)
+        self.end_input.setValue(50)
+        self.end_input.setStyleSheet("""
+            QSpinBox {
+                border: 1px solid #d0d0d0;
+                border-radius: 4px;
+                padding: 5px;
+            }
+        """)
+        range_layout.addWidget(self.end_input)
+        
+        layout.addLayout(range_layout)
+        
+        # 抽取按钮
+        pick_btn = QPushButton("抽取学号")
+        pick_btn.setFixedHeight(40)
+        pick_btn.setFont(QFont("Microsoft YaHei UI", 12, QFont.Bold))
+        pick_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0078d7;
+                color: white;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #0066b4;
+            }
+        """)
+        pick_btn.clicked.connect(self.pick_number)
+        layout.addWidget(pick_btn)
+        
+        # 结果标签
+        result_label = QLabel("抽取结果:")
+        result_label.setFont(QFont("Microsoft YaHei UI", 12))
+        layout.addWidget(result_label)
+        
+        # 结果文本框
+        self.number_result_text = QTextEdit()
+        self.number_result_text.setReadOnly(True)
+        self.number_result_text.setFont(QFont("Microsoft YaHei UI", 64, QFont.Bold))  # 大字号
+        self.number_result_text.setAlignment(Qt.AlignCenter)  # 居中显示
+        self.number_result_text.setStyleSheet("""
+            QTextEdit {
+                border: 1px solid #d0d0d0;
+                border-radius: 4px;
+                padding: 20px;
+                background-color: #f8f8f8;
+            }
+        """)
+        self.number_result_text.setFixedHeight(200)  # 固定高度
+        layout.addWidget(self.number_result_text)
+        
+        # 添加伸缩空间
+        layout.addStretch()
+        
+        return tab
+
+    def pick_number(self):
+        """随机抽取学号（添加去重功能）"""
+        try:
+            # 获取起始和结束学号
+            start = self.start_input.value()
+            end = self.end_input.value()
+            
+            # 验证范围
+            if start > end:
+                QMessageBox.warning(self, "错误", "起始学号不能大于结束学号")
+                return
+                
+            if start < 1 or end > 200:
+                QMessageBox.warning(self, "错误", "学号范围必须在1到200之间")
+                return
+                
+            # 检查范围是否改变
+            current_range = (start, end)
+            if not hasattr(self, 'picked_numbers') or self.current_range != current_range:
+                # 如果范围改变，重置已抽取学号列表
+                self.picked_numbers = set()
+                self.current_range = current_range
+                self.available_numbers = set(range(start, end + 1))
+            
+            # 检查是否所有学号都已抽取
+            if not self.available_numbers:
+                # 静默重置：重新生成可用学号集合
+                self.available_numbers = set(range(start, end + 1))
+                self.picked_numbers = set()
+            
+            # 从未抽取的学号中随机选择一个
+            available = list(self.available_numbers)
+            number = random.choice(available)
+            
+            # 更新已抽取和可用学号集合
+            self.picked_numbers.add(number)
+            self.available_numbers.remove(number)
+            
+            # 显示结果
+            self.number_result_text.setPlainText(str(number))
+            
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"抽取学号失败: {str(e)}")
+    
+    def create_seat_pick_page(self):
+        """创建座位点人选项卡（添加镜像功能）"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(15)
+        
+        title = QLabel("座位点人")
+        title_font = QFont("Microsoft YaHei UI", 18, QFont.Bold)
+        title.setFont(title_font)
+        layout.addWidget(title)
+        
+        # 分隔线
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        separator.setStyleSheet("background-color: #e0e0e0;")
+        layout.addWidget(separator)
+        
+        # 座位表设置区域
+        settings_layout = QHBoxLayout()
+        settings_layout.setSpacing(10)
+        
+        # 行数输入框
+        rows_label = QLabel("行数:")
+        rows_label.setFont(QFont("Microsoft YaHei UI", 12))
+        settings_layout.addWidget(rows_label)
+        
+        self.rows_input = QSpinBox()
+        self.rows_input.setFont(QFont("Microsoft YaHei UI", 12))
+        self.rows_input.setMinimum(1)
+        self.rows_input.setMaximum(20)
+        self.rows_input.setValue(6)
+        self.rows_input.setStyleSheet("""
+            QSpinBox {
+                border: 1px solid #d0d0d0;
+                border-radius: 4px;
+                padding: 5px;
+            }
+        """)
+        settings_layout.addWidget(self.rows_input)
+        
+        # 列数输入框
+        cols_label = QLabel("列数:")
+        cols_label.setFont(QFont("Microsoft YaHei UI", 12))
+        settings_layout.addWidget(cols_label)
+        
+        self.cols_input = QSpinBox()
+        self.cols_input.setFont(QFont("Microsoft YaHei UI", 12))
+        self.cols_input.setMinimum(1)
+        self.cols_input.setMaximum(20)
+        self.cols_input.setValue(8)
+        self.cols_input.setStyleSheet("""
+            QSpinBox {
+                border: 1px solid #d0d0d0;
+                border-radius: 4px;
+                padding: 5px;
+            }
+        """)
+        settings_layout.addWidget(self.cols_input)
+        
+        # 镜像座位复选框
+        self.mirror_check = QCheckBox("镜像座位")
+        self.mirror_check.setFont(QFont("Microsoft YaHei UI", 12))
+        self.mirror_check.setChecked(True)  # 默认选中
+        settings_layout.addWidget(self.mirror_check)
+        
+        # 生成座位表按钮
+        generate_btn = QPushButton(" 生成座位表 ")
+        generate_btn.setFixedHeight(40)
+        generate_btn.setFont(QFont("Microsoft YaHei UI", 12, QFont.Bold))
+        generate_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0078d7;
+                color: white;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #0066b4;
+            }
+        """)
+        generate_btn.clicked.connect(self.generate_seat_table)
+        settings_layout.addWidget(generate_btn)
+        
+        layout.addLayout(settings_layout)
+        
+        # 抽取按钮
+        pick_btn = QPushButton("随机抽取座位")
+        pick_btn.setFixedHeight(40)
+        pick_btn.setFont(QFont("Microsoft YaHei UI", 12, QFont.Bold))
+        pick_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #107c10;
+                color: white;
+                border: none;
+                border-radius: 4px;
+            }
+            QPushButton:hover {
+                background-color: #0e6e0e;
+            }
+        """)
+        pick_btn.clicked.connect(self.pick_seat)
+        layout.addWidget(pick_btn)
+        
+        # 座位表容器
+        self.seat_table_container = QWidget()
+        self.seat_table_layout = QGridLayout(self.seat_table_container)
+        self.seat_table_layout.setSpacing(5)
+        self.seat_table_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 创建默认座位表
+        self.generate_seat_table()
+        
+        # 添加滚动区域
+        self.seat_scroll_area = QScrollArea()
+        self.seat_scroll_area.setWidgetResizable(True)
+        self.seat_scroll_area.setWidget(self.seat_table_container)
+        layout.addWidget(self.seat_scroll_area, 1)
+        
+        return tab
+
+    def generate_seat_table(self):
+        """生成座位表（添加镜像功能）"""
+        # 清除现有座位表
+        while self.seat_table_layout.count():
+            item = self.seat_table_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+        
+        # 获取行数和列数
+        rows = self.rows_input.value()
+        cols = self.cols_input.value()
+        
+        # 检查是否启用镜像
+        mirror = self.mirror_check.isChecked()
+        
+        # 创建座位表
+        self.seat_table = []
+        for row in range(rows):
+            row_widgets = []
+            for col in range(cols):
+                # 计算显示的行列号（考虑镜像）
+                if mirror:
+                    # 镜像模式：行从上到下，列从右到左
+                    display_row = row+1
+                    display_col = cols - col
+                else:
+                    # 正常模式：行从上到下，列从左到右
+                    display_row = row + 1
+                    display_col = col + 1
+                
+                # 创建座位标签
+                seat_label = QLabel(f"({display_row},{display_col})")
+                seat_label.setAlignment(Qt.AlignCenter)
+                seat_label.setFont(QFont("Microsoft YaHei UI", 10))
+                seat_label.setStyleSheet("""
+                    QLabel {
+                        background-color: #e0e0e0;
+                        border: 1px solid #d0d0d0;
+                        border-radius: 4px;
+                        padding: 10px;
+                        min-width: 40px;
+                        min-height: 40px;
+                    }
+                """)
+                
+                # 添加到布局（注意：布局位置始终是正常顺序）
+                self.seat_table_layout.addWidget(seat_label, row, col)
+                row_widgets.append(seat_label)
+            self.seat_table.append(row_widgets)
+        
+        # 重置选中的座位
+        self.selected_seat = None
+
+    def pick_seat(self):
+        """随机抽取座位并高亮显示"""
+        # 获取行数和列数
+        rows = self.rows_input.value()
+        cols = self.cols_input.value()
+        
+        # 随机选择座位
+        row = random.randint(0, rows - 1)
+        col = random.randint(0, cols - 1)
+        
+        # 重置之前选中的座位样式
+        if self.selected_seat:
+            prev_row, prev_col = self.selected_seat
+            self.seat_table[prev_row][prev_col].setStyleSheet("""
+                QLabel {
+                    background-color: #e0e0e0;
+                    border: 1px solid #d0d0d0;
+                    border-radius: 4px;
+                    padding: 10px;
+                    min-width: 40px;
+                    min-height: 40px;
+                }
+            """)
+        
+        # 高亮新选中的座位
+        self.seat_table[row][col].setStyleSheet("""
+            QLabel {
+                background-color: #ffcc00;
+                border: 2px solid #ff9900;
+                border-radius: 4px;
+                padding: 10px;
+                min-width: 40px;
+                min-height: 40px;
+                font-weight: bold;
+            }
+        """)
+        
+        # 保存选中的座位
+        self.selected_seat = (row, col)
+
 class ScheduleWindow(QWidget):
     def __init__(self):
         super().__init__()
@@ -2966,7 +3396,7 @@ class ScheduleWindow(QWidget):
         """启动考试助手程序"""
         try:
             # 获取当前目录
-            current_dir = os.path.dirname(os.path.abspath(__file__))
+            current_dir = os.path.dirname(os.path.dirname(__file__))
             helper_path = os.path.join(current_dir, "contest_helper.exe")
             
             if os.path.exists(helper_path):
@@ -3091,7 +3521,7 @@ class ScheduleWindow(QWidget):
         
         # 恢复鼠标事件
         self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-    
+
     def show_fullscreen_time(self, event):
         """双击时间标签时显示全屏时间窗口"""
         # 创建全屏时间窗口
@@ -3107,15 +3537,35 @@ class ScheduleWindow(QWidget):
         layout = QVBoxLayout(self.time_window)
         layout.setContentsMargins(0, 0, 0, 0)
         
+        # 添加顶部空白区域
+        layout.addStretch(1)
+        
+        # 创建日期和时间容器
+        time_date_container = QVBoxLayout()
+        time_date_container.setAlignment(Qt.AlignCenter)
+        
+        # 日期标签
+        self.fullscreen_date_label = QLabel()
+        self.fullscreen_date_label.setAlignment(Qt.AlignCenter)
+        self.fullscreen_date_label.setFont(QFont("Microsoft YaHei UI", 36, QFont.Bold))
+        self.fullscreen_date_label.setStyleSheet("color: white; margin-bottom: 20px;")
+        time_date_container.addWidget(self.fullscreen_date_label)
+        
         # 时间标签
         self.fullscreen_time_label = QLabel()
         self.fullscreen_time_label.setAlignment(Qt.AlignCenter)
-        self.fullscreen_time_label.setFont(QFont("Microsoft YaHei UI", 200, QFont.Bold))
+        self.fullscreen_time_label.setFont(QFont("SF Pro Text", 200, QFont.Bold))
         self.fullscreen_time_label.setStyleSheet("color: white;")
-        layout.addWidget(self.fullscreen_time_label, 1)
+        time_date_container.addWidget(self.fullscreen_time_label)
+        
+        # 将日期时间容器添加到主布局
+        layout.addLayout(time_date_container)
+        
+        # 添加底部空白区域
+        layout.addStretch(1)
         
         # 退出按钮
-        exit_btn = QPushButton("退出时间大屏")
+        exit_btn = QPushButton(" 退出时间大屏 ")
         exit_btn.setFixedHeight(60)
         exit_btn.setFont(QFont("Microsoft YaHei UI", 24, QFont.Bold))
         exit_btn.setStyleSheet("""
@@ -3142,11 +3592,30 @@ class ScheduleWindow(QWidget):
         
         # 显示窗口
         self.time_window.showFullScreen()
-    
+
     def update_fullscreen_time(self):
-        """更新全屏时间显示"""
-        current_time = datetime.datetime.now().strftime("%H:%M:%S")
-        self.fullscreen_time_label.setText(current_time)
+        try:
+            """更新全屏时间显示"""
+
+            import LunarDate
+
+            now=datetime.datetime.now()
+            
+            # 更新日期显示
+            weekday = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][now.weekday()]
+            date_str = f"{now.month}月{now.day}日{weekday}"
+            
+            Lun=LunarDate.Lunar(now)
+            date_str += f" · {Lun.gz_year()}年{Lun.ln_date_str()[8:].replace(' ','')}"
+            
+            self.fullscreen_date_label.setText(date_str)
+
+        except ImportError:
+            QMessageBox.critical(self, "关键组件缺失", "modules.LunarDate 缺失")
+
+        # 更新时间显示
+        time_str = now.strftime("%H:%M:%S")
+        self.fullscreen_time_label.setText(time_str)
     
     def mousePressEvent(self, event):
         """鼠标点击事件处理"""
@@ -3489,6 +3958,7 @@ class ScheduleWindow(QWidget):
         
         # 退出程序
         subprocess.run(["taskkill","/f","/im","contest_helper.exe"])
+        stop_guardian()
         QApplication.quit()
     
     def closeEvent(self, event):
@@ -3510,7 +3980,7 @@ def check_for_updates():
     """在程序启动时检查更新（根据配置）"""
     try:
         # 加载配置文件
-        config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
+        config_path = os.path.join(os.path.dirname(__file__),"config.yaml")
         if not os.path.exists(config_path):
             return
             
@@ -3547,6 +4017,7 @@ def check_for_updates():
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     check_for_updates()
+    start_guardian() # 暂时未完成
     window = ScheduleWindow()
     window.show()
     sys.exit(app.exec_())
