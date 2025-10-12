@@ -28,7 +28,6 @@ from cryptography.hazmat.backends import default_backend
 # 防止程序多开
 single = tendo.singleton.SingleInstance()
 
-
 def start_guardian():
     """启动守护进程"""
     pass
@@ -80,7 +79,7 @@ class SettingsWindow(QWidget):
     def __init__(self, main_window):
         super().__init__()
         self.main_window = main_window
-        self.setWindowTitle("刷屏君 课堂工具 v1.1.0")
+        self.setWindowTitle("刷屏君 课堂工具 v1.1.1")
         self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "icon.ico")))  # 如果有图标文件的话
         self.setGeometry(100, 100, 800, 600)
         self.setMinimumSize(800, 600)
@@ -1363,6 +1362,11 @@ class SettingsWindow(QWidget):
         # 设置表格行数
         self.exam_table.setRowCount(len(exams))
         
+        for exam in exams:
+            # 将中文时间转换为标准格式
+            exam['st'] = exam['st'].replace("年", "/").replace("月", "/").replace("日", " ").replace("时", ":").replace("分", "")
+            exam['ed'] = exam['ed'].replace("年", "/").replace("月", "/").replace("日", " ").replace("时", ":").replace("分", "")
+
         # 填充表格
         for i, exam in enumerate(exams):
             # 科目
@@ -1419,8 +1423,26 @@ class SettingsWindow(QWidget):
             return time_str  # 如果解析失败，返回原始字符串
 
     def delete_exam(self, row):
-        """删除考试"""
-        self.exam_table.removeRow(row)
+        """删除考试（修复行索引问题）"""
+        try:
+            # 删除表格行
+            self.exam_table.removeRow(row)
+            
+            # 更新后续行的删除按钮连接
+            for i in range(row, self.exam_table.rowCount()):
+                # 获取当前行的删除按钮
+                delete_btn = self.exam_table.cellWidget(i, 5)  # 假设删除按钮在第6列（索引5）
+                if delete_btn:
+                    # 断开旧连接
+                    try:
+                        delete_btn.clicked.disconnect()
+                    except:
+                        pass
+                    # 重新连接新行索引
+                    delete_btn.clicked.connect(lambda _, r=i: self.delete_exam(r))
+                    
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"删除考试失败: {str(e)}")
     
     def add_exam(self):
         """添加考试"""
@@ -1915,7 +1937,7 @@ class SettingsWindow(QWidget):
     def show_about_info(self):
         """显示关于信息"""
         about_text = """
-            <h2>刷屏君 课堂工具 v1.1.0</h2>
+            <h2>刷屏君 课堂工具 v1.1.1</h2>
             <p>这是一个专为课堂设计的实用工具，帮助教师管理课程、学生和时间。</p>
             <p><b>主要功能：</b></p>
             <ul>
@@ -1928,7 +1950,7 @@ class SettingsWindow(QWidget):
             <p><b>开发者：</b> 刷屏君个人</p>
             <p><b>联系方式：</b> BXJZDXMM@vip.qq.com</p>
             <p><b>官方网站：</b> <a href="http://spj2025.top">http://spj2025.top</a></p>
-            <p><b>版权信息：</b> © 2025 刷屏君团队 保留所有权利</p>
+            <p><b>版权信息：</b> © 2025 刷屏君 保留所有权利</p>
         """
         
         QMessageBox.information(
@@ -1942,32 +1964,23 @@ class SettingsWindow(QWidget):
         """显示关于信息"""
         about_text = f"""
             <h2>刷屏君 课堂工具 更新日志</h2>
-            <p><b>v1.1.0</b></p>
+            <p><b>v1.1.1</b></p>
+            <ul>
+                <li>修复考试功能页面在特定情况下保存考试设置时程序崩溃的问题</li>
+                <li>修复考试功能页面在特定情况下无法删除考试的问题</li>
+                <li>修复考试助手无法自动启动的问题</li>
+                <li>优化考试助手逻辑</li>
+            </ul>
+            <p><b>近期更新</b></p>
             <ul>
                 <li>功能更新：新增学号选人、座位选人</li>
-            <p><b>v1.0.5</b></p>
-            <ul>
                 <li>功能更新：时间大屏添加日期显示，包括农历日期</li>
-                <li>时间大屏中时间的字体改为 SF Pro Text （如果显示为宋体请点击 <a href="file:///{os.path.join(os.path.dirname(__file__),"SF-Pro-Text.otf")}">此处</a> 安装SF-Pro-Text字体）</li>
             </ul>
-            <p><b>v1.0.3</b></p>
+            <p><b>附件下载</b></p>
             <ul>
-                <li>可以关闭考试结束前15分钟及考试结束时的语音播报提示了</li>
-            </ul>
-            <p><b>v1.0.2</b></p>
-            <ul>
-                <li>修复通过自启动启动本程序，考试及图标无法读取的问题</li>
-                <li>更新更新程序逻辑，请自行前往 <a href="http://spj2025.top:19540/apps/update/SPJClassTool/files/update.pyw">此链接</a> 下载新更新程序并替换</li>
-                <li>新增保护模块，防止程序崩溃，请自行前往 <a href="http://spj2025.top:19540/apps/update/SPJClassTool/files/protect.pyw">此链接</a> 下载</li>
-            </ul>
-            <p><b>v1.0.1</b></p>
-            <ul>
-                <li>修复未配置课程表时程序异常崩溃的问题</li>
-                <li>修复保存密码时程序异常崩溃的问题</li>
-            </ul>
-            <p><b>v1.0.0</b></p>
-            <ul>
-                <li>初代 pyclasstool 问世</li>
+                <li><a href="file:///{os.path.join(os.path.dirname(__file__),"SF-Pro-Text.otf")}">SF Pro Text.otf</a></li>
+                <li><a href="http://spj2025.top:19540/apps/update/SPJClassTool/files/update.pyw">新版 update.pyw</a></li>
+                <li><a href="http://spj2025.top:19540/apps/update/SPJClassTool/files/protect.pyw">保护模块 protect.pyw</a></li>
             </ul>
         """
         
@@ -2165,6 +2178,7 @@ class SettingsWindow(QWidget):
         try:
             # 调用系统关机程序
             subprocess.Popen(["C:\\Windows\\System32\\slidetoshutdown.exe"])
+            QApplication.quit()
         except Exception as e:
             print(f"关机失败: {e}")
 
@@ -3396,7 +3410,7 @@ class ScheduleWindow(QWidget):
         """启动考试助手程序"""
         try:
             # 获取当前目录
-            current_dir = os.path.dirname(os.path.dirname(__file__))
+            current_dir = os.path.dirname(__file__)
             helper_path = os.path.join(current_dir, "contest_helper.exe")
             
             if os.path.exists(helper_path):
@@ -4017,7 +4031,7 @@ def check_for_updates():
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     check_for_updates()
-    start_guardian() # 暂时未完成
+    #start_guardian() # 暂时未完成
     window = ScheduleWindow()
     window.show()
     sys.exit(app.exec_())
